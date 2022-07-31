@@ -1,0 +1,498 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.13.8
+  kernelspec:
+    display_name: Python 3 (ipykernel)
+    language: python
+    name: python3
+---
+
+<!-- #region id="fyBKEPRQmZHX" -->
+# Group 
+
+Groupmembers are:
+
+
+|Gender|Firstname|Surname|Email| Study program| Semester| Student ID|
+|:----:|:--------|:------|:----|:----------|:------------|:--------|
+| f | Larissa | Jesus | larissa.ldjesus@student.uni-siegen.de| HCI| 4|1589319|
+| f | Cam Van | Tran Thi | cam.tranthi@student.uni-siegen.de | HCI | 4 | 1542660 |
+| m |Roberto|Ruiz|rroberto.rruiz@gmail.com|HCI|1|1692619|
+
+    
+**Course**: First steps into Artificial Intelligence: Organization & Introduction
+
+**Examiner**: Prof. Dr. Thomas Ludwig
+
+**Semester**: Summersemester 2022
+
+**Submission date**: 31. July 2022
+
+**City**: Siegen, Germany
+
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="GK2eMNBCnjwc", outputId="cf76b3bc-16f1-4d5f-e39b-a8324012e095"}
+# !pip install pyod
+```
+
+```{python id="TI_FrJNwnbf8"}
+# Importing the necessary libraries for the data mining process
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+from pyod.models.knn import KNN
+from sklearn import svm
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import classification_report 
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import StandardScaler
+
+warnings.filterwarnings('ignore')
+```
+
+```{python id="OauEegpqn1KV"}
+# Importing the dataset
+datapath = "data/diamonds_FSAI_SoSe22.csv"
+raw_df = pd.read_csv(datapath, index_col = 0)
+```
+
+<!-- #region id="tgb1D4DMomQ5" -->
+## Business Understanding
+<!-- #endregion -->
+
+<!-- #region id="rWrzBDI5DoAB" -->
+A jewelry store named “CHARM” regularly buys diamonds of various sizes, cuts and colors to make and sell all kinds of diamond jewelry for customers.  The owner of the store aims to offer a fair price for his jewelry products in order to increase customer satisfaction, attract new customers and have more revenues. Thus, he wants to have a quick but accurate estimation of the diamond’s price and diamond’s cut using AI supported solution. 
+
+Apart from the links mentioned in the report, here are a few more links we used for the business understanding stage:
+
+- [How do you calculate diamond measurements?](https://www.briangavindiamonds.com/news/how-do-you-calculate-diamond-measurements/)
+- [What is the formula for total depth of a diamond if you know the diameter?](https://www.briangavindiamonds.com/news/what-is-the-formula-for-total-depth-of-a-diamond-if-you-know-the-diameter/)
+<!-- #endregion -->
+
+<!-- #region id="KMA5RO7Jn2fI" -->
+## Data Understanding
+
+The diamonds dataset has 45849 entries (rows) and 10 features (columns) which are:
+
+**Carat**: Carat weight of the diamond (0.2 - 5.01)
+
+**Cut**: Describe cut quality of the diamond in increasing order: Fair, Good, Very Good, Premium, Ideal
+
+**Color**: Color of the diamond, with D being the best and J the worst 
+
+**Clarity**: Describe how obvious inclusions are within the diamond: (I1 (worst), SI2, SI1, VS2, VS1, VVS2, VVS1, IF (best))
+
+**Depth**: The height of a diamond, measured from the culet to the table, divided by its average girdle diameter (43 - 79%)
+
+**Table**: The width of the diamond's table expressed as a percentage of its average diameter (43 - 95%)
+
+**Price**: the price of the diamond in US dollars ($326 - $18,818)
+
+**X**: length (0 - 10.74 mm)
+
+**Y**: width (0 - 58.9 mm)
+
+**Z**: depth (0 - 31.8 mm)
+
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="bxvcicrTGmMJ", outputId="3a20c253-1aba-4550-ae7e-5d90c540111f"}
+# Checking dimension of the dataset
+raw_df.shape
+```
+
+<!-- #region id="4t2-RLXbptMW" -->
+The description of the whole dataset shows that x, y, z have 0 values, which means these entries have incomplete information and should be removed.
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 300}, id="5k9Y-P6zppdl", outputId="fc6ab5bc-fadd-476f-e0f2-065859ac4d78"}
+# Checking description of the whole dataset
+raw_df.describe()
+```
+
+<!-- #region id="rQi3-pO6KwfB" -->
+There are 17 rows which have 0 values in the dataset to remove
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="I6yfM6pZIo1H", outputId="77341da2-1f76-41d7-a82e-4e1cac126349"}
+# Checking the number of rows with 0 values
+num_values_0 = raw_df[
+    (raw_df['x'] == 0) |
+    (raw_df['y'] == 0) |
+    (raw_df['z'] == 0)
+]
+len(num_values_0)
+```
+
+<!-- #region id="CI9ZdxrOrLXU" -->
+Checking information of the dataset, we see that “cut, color and clarity” have object type (i.e. categorical type), the other 7 features have numerical type (6 float64 or 1 int64). There is also no null values in the dataset.
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="PNlvfCbFqM3b", outputId="d2fd4601-190c-43ad-e7bc-80bd4a5d1ff7"}
+# Checking the information of the dataset
+raw_df.info()
+```
+
+<!-- #region id="GqtVl_etsG_1" -->
+The correlation heatmap indiates that Price is highly correlated to carat and x, y, z.
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 298}, id="-IYYYewYrJU_", outputId="12558e80-aaff-4a62-c526-93176d52dc48"}
+# Checking the correlations among the features
+graph = sns.heatmap(
+    raw_df.corr(),
+    annot = True,
+    cmap = 'coolwarm'
+)
+graph.set_title("Correlation map")
+```
+
+<!-- #region id="GXO9Z20LNexy" -->
+
+The graphical plots of numerical features (i.e. carat, x, y, z, price, depth, table,) show that there are outliers in the dataset
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 991}, id="lfGoXlhpps64", outputId="e33c88bd-be65-4f6b-ea99-b27d5f6f2b94"}
+# Using boxplot to identify outliers in the dataset
+fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12,5))
+ax[0].boxplot(raw_df['carat'])
+ax[0].set_title('carat')
+ax[1].boxplot(raw_df['x'])
+ax[1].set_title('x')
+ax[2].boxplot(raw_df['y'])
+ax[2].set_title('y')
+
+fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12,5))
+ax[0].boxplot(raw_df['z'])
+ax[0].set_title('z')
+ax[1].boxplot(raw_df['price'])
+ax[1].set_title('price')
+ax[2].boxplot(raw_df['depth'])
+ax[2].set_title('depth')
+plt.show()
+
+fig, ax = plt.subplots(figsize=(4,5))
+ax.boxplot(raw_df['table'])
+ax.set_title('table')
+```
+
+<!-- #region id="5Hk47403O-Mu" -->
+Plotting the distribution of the price, we realize that most of the diamonds in the dataset have a low price (<$7500)
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 298}, id="WB36pM8qvTLX", outputId="c1113668-7ec6-4e7b-e56f-6d33147de914"}
+# Plotting the price distribution
+raw_df.price.plot.hist(title="Diamond price distribution")
+```
+
+<!-- #region id="wGzHTxAsQVQ_" -->
+the statistics and pie graph of diamond's cut reveals that most of the diamond’s cut are Ideal, Premium and Very Good (account for 87.85%)
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="7vIN_JhHusRU", outputId="04489dba-aa35-4213-f8ec-9530dd374272"}
+# Checking the quantity of each type of cut
+raw_df['cut'].value_counts()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 429}, id="Ci83snbqHcQx", outputId="164be25b-e95f-44f0-a20a-1763ad05744f"}
+# Plotting the percentage distribution of the diamond's cut
+cut_palette = ["darkturquoise", "lightskyblue", "paleturquoise", "lightcyan", "azure"]
+df_cut = raw_df['cut'].value_counts()
+plt.figure(figsize = (6,6))
+plt.pie(
+    data = df_cut, 
+    x = df_cut.values,
+    labels = df_cut.index,
+    autopct = "%.2f%%",
+    pctdistance = 0.8,
+    colors = cut_palette
+)
+circle = plt.Circle(xy = (0, 0), radius = 0.5, facecolor = 'white')
+plt.gca().add_artist(circle)
+plt.title("% of Diamond cut distribution", size = 16)
+plt.show()
+```
+
+<!-- #region id="LPa8iONUraPJ" -->
+**In summary, through data exploration we found out that:**
+- We need to remove outliers, and rows with 0 values 
+- "cut, color and clarity” have categorical type, should be encoded into numbers
+- "price, carat, x, y, z” have high correlations
+
+<!-- #endregion -->
+
+<!-- #region id="yEF3LM74mPMn" -->
+## Data Preparation
+<!-- #endregion -->
+
+<!-- #region id="CHiSESbNwjQg" -->
+We start by removing 0 values
+<!-- #endregion -->
+
+```{python id="trtn9nzwwgGS"}
+# Removing 0 values in x, y, z
+raw_df = raw_df.drop(raw_df[raw_df['x'] == 0].index)
+raw_df = raw_df.drop(raw_df[raw_df['y'] == 0].index)
+raw_df = raw_df.drop(raw_df[raw_df['z'] == 0].index)
+```
+
+<!-- #region id="PjxsLynHwlgc" -->
+We encode categorial data to numerical data, identify and remove outliers in the dataset
+<!-- #endregion -->
+
+```{python id="mmIprM8HxEjo"}
+# Creating the dataset for the regression problem
+df_reg = raw_df.copy()
+```
+
+```{python id="1mkdD_4R39TE"}
+# Transforming categorical data in numerical data in the regression dataset
+# ordinal encode 'cut', 'color', 'clarity'
+df_reg['cut'] = df_reg['cut'].map({'Fair':1,'Good':2,'Very Good':3,'Premium':4,'Ideal':5})
+df_reg['color'] = df_reg['color'].map({'J':1,'I':2,'H':3,'G':4,'F':5,'E':6,'D':7})
+df_reg['clarity'] = df_reg['clarity'].map({'I1':1, 'SI2':2, 'SI1':3, 'VS2':4, 'VS1':5, 'VVS2':6, 'VVS1':7, 'IF':8})
+```
+
+```{python id="PHAyxhJR39eK"}
+# Creating and fitting an outlier detector
+detector = KNN()
+detector.fit(df_reg)
+outliers_reg = detector.labels_
+```
+
+```{python id="D7Jnw44d39mD"}
+# Creating a column in the dataset to identify the outliers
+df_reg['outliers'] = outliers_reg
+```
+
+```{python id="kZ7nrS3y39tt"}
+# Creating an array with outlier indexes
+index_outliers = df_reg[df_reg['outliers'] == 1].index.values
+```
+
+```{python id="7jOUOwaa4Ch_"}
+# Removing the outliers
+for i in index_outliers:
+    df_reg = df_reg.drop(index=i)
+```
+
+```{python id="hsoeB--f4Cmp"}
+# Removing the outliers column
+df_reg = df_reg.drop('outliers', axis=1)
+```
+
+```{python id="XJHmuHpwaa8b"}
+# Creating the dataset for the classification
+df_clf = raw_df.copy()
+df_clf = df_clf.drop(["carat","color","price","clarity"], axis=1)
+```
+
+```{python id="gnyFklGC4L2y"}
+# Transforming the cut in numerical data
+df_clf['cut'] = df_clf['cut'].map({ 'Fair':1,'Good':2,'Very Good':3,'Premium':4,'Ideal':5 })
+```
+
+```{python id="4o_S_DNt4L6q"}
+# Fitting the outlier detector in the classification dataset
+detector.fit(df_clf)
+outliers_clf = detector.labels_
+```
+
+```{python id="xQYTpKLb4L-z"}
+# Creating a column in the dataset to identify the outliers
+df_clf['outliers'] = outliers_clf
+```
+
+```{python id="HLtUT8_14MFb"}
+# Creating an array with outlier indexes
+index_outliers2 = df_clf[df_clf['outliers']==1].index.values
+```
+
+```{python id="vA7oqIb64MK8"}
+# Returning the text data to our labels
+df_clf['cut'] = raw_df['cut']
+```
+
+```{python id="jD7pXCqW4MQj"}
+# Removing the outliers
+for i in index_outliers2:
+    df_clf = df_clf.drop(index=i)
+```
+
+```{python id="ycQcdFer4MVJ"}
+# Standardizing the classification dataset
+df_clf[["depth", "table", "y", "x", "z"]] = StandardScaler().fit_transform(df_clf[["depth", "table","y","x","z"]])
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="TxF7P9WHyJOm", outputId="2c273273-5076-4335-b6fd-b19b138c7daf"}
+print("In total we dropped:", raw_df.shape[0] - df_reg.shape[0])
+```
+
+<!-- #region id="Mq_mF_IcoyKG" -->
+## Modeling
+<!-- #endregion -->
+
+We have tested out many different models. For example: Linear Regression, KNN, Neural Network and Random Foresr Regression for Price prediction; and KNN, Naive Bayes, Random Forest Classification, and Support Vector Classification for the Cut prediction. Among them, Ensemble Regression (i.e. Random Forest Regression) and SVC yiel the best results. Thus, we choose these models for our prediction tasks.
+
+```{python id="j1c7cfxez1S7"}
+# Defining independent and dependent variables for the regression
+independent_reg = df_reg.drop("price", axis=1)
+dependent_reg = df_reg['price']
+
+X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(independent_reg, dependent_reg, test_size=0.2, 
+                                                                    random_state=42)
+```
+
+```{python id="XVO6NInf2Ka2"}
+# This is the code that was used to determine the best parameters for Random Forest Regression model
+# This was done in another notebook
+"""
+  # Create the parameter grid based on the results of random search 
+  rfr_param_grid = {
+      'bootstrap': [True, False],
+      'max_depth': [5,50,100],
+      'max_features': [5,10,20,40,None],
+      'min_samples_leaf': [1,10,50,100],
+      'min_samples_split': [5,10],
+      'n_estimators': [0,50,100], 
+      'random_state' : [0,20,40,60]
+  }
+  
+  # Create a based model
+  rfr_GridSearch = RandomForestRegressor()
+
+  # Instantiate the grid search model
+  rfr_grid_search = GridSearchCV(estimator = rfr_GridSearch, param_grid = rfr_param_grid, 
+                                cv = 3, n_jobs = -1, verbose = 2, scoring=['r2', 'neg_mean_absolute_error'],
+                                refit='neg_mean_absolute_error')
+
+  # Test the Model on different grid parameter
+  rfr_grid_search.fit(X_train_reg, y_train_reg)
+  print(rfr_grid_search.best_params_)
+"""
+""
+```
+
+```{python id="DMaKi_oMzyzW"}
+# Instantiating and fitting the model
+rfr = RandomForestRegressor(
+    random_state=0, 
+    bootstrap= True, 
+    max_depth=50, 
+    max_features=5, 
+    min_samples_leaf= 1, 
+    min_samples_split=5, 
+    n_estimators=100
+)
+
+rfr.fit(X_train_reg, y_train_reg)
+y_pred_RFR = rfr.predict(X_test_reg)
+```
+
+```{python id="kdpxAFZM3Vb0"}
+# Tunning the hyperparameters of the SVM classification model. This was done in
+# another notebook.
+"""
+  svc_param_grid = {
+      'C': [0.1,1.0,10, 100, 1000],
+      'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
+      'gamma': ['scale', 'auto',1, 0.1, 0.01, 0.001, 0.0001],
+      'shrinking': [True,False],
+      'tol': [-3,1,3,5] 
+  }
+  #Create a based model
+  svc_GridSearch = svm.SVC()
+
+  #Instantiate the grid search model
+  svc_grid_search = GridSearchCV(estimator = svc_GridSearch, param_grid = svc_param_grid, 
+                                cv = 3, n_jobs = -1, verbose = 2, scoring=['accuracy'], refit='accuracy')
+
+  #Test the Model on different grid parameter
+  svc_grid_search.fit(X_train_clf, X_test_clf)
+  print(svc_grid_search.best_params_)
+"""
+""
+```
+
+```{python id="_Q2q8mA64Omr"}
+# Defining our independent and dependent variables for the classification problem
+independent_clf = df_clf.drop("cut", axis=1)
+dependent_clf = df_clf['cut']
+
+# Splitting the data in training and test set for classification
+X_train_clf, X_test_clf, y_train_clf, y_test_clf = train_test_split(independent_clf, dependent_clf, test_size=0.2, 
+                                                                    random_state=42)
+```
+
+```{python id="t1jnwqUN4tDn"}
+# Instanciating and fitting the classification model
+Model_clf = svm.SVC(
+    random_state=42,
+    C= 1000,
+    gamma= 0.1,
+    kernel='rbf',
+    shrinking=False,
+    tol= 1
+)
+Model_clf.fit(X_train_clf, y_train_clf)
+y_pred_clf = Model_clf.predict(X_test_clf)
+```
+
+<!-- #region id="YKa8PKsfo1My" -->
+## Evaluation
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="5n92CzRm07jX", outputId="bf5be047-7bc0-4747-ebb7-112713ef7ad9"}
+# Evaluating the Regression Model
+mse = mean_squared_error(y_test_reg, y_pred_RFR)
+print("MSE : "+ str(mse))
+rmse= np.sqrt(mse)
+print("RMSE: "+ str(rmse))
+mae = mean_absolute_error(y_test_reg, y_pred_RFR)
+print("MAE : "+ str(mae))
+r2 = r2_score(y_test_reg, y_pred_RFR)
+print("R2  : "+ str(r2))
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 458}, id="XWvjNFmdm7r7", outputId="bd789ca3-6ee1-452c-f877-21753742a749"}
+# Plotting the graph of the predicted  x actual actual values of the test set 
+fig, ax = plt.subplots(figsize=(7, 7))
+ax.plot(y_test_reg, y_test_reg, label="Expected", color = "red")
+ax.scatter(y_pred_RFR, y_test_reg, label = "Predicted")
+
+ax.set(xlabel='Predicted', ylabel='Actual',
+       title='Relation: Predicted vs. Actual Value')
+
+ax.grid()
+ax.legend()
+
+plt.show()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="LmzJYtYZoul4", outputId="18131c8b-1c9d-4219-d522-bf556fd83bae"}
+# Evaluating the classification model
+
+print (f"Score on the training data: {Model_clf.score(X_train_clf, y_train_clf)}")
+print (f"Score on the test data: {Model_clf.score(X_test_clf, y_test_clf)}")
+
+print(classification_report(y_test_clf, y_pred_clf))
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 297}, id="k9OD8OXyoxOw", outputId="b45a5d34-842d-4470-ecc2-5c389dbe8772"}
+# Plotting a confusion matrix for the test set of the classification model
+ConfusionMatrixDisplay.from_estimator(Model_clf, X_test_clf, y_test_clf)
+plt.title("Confusion Matrix", size = 16)
+plt.show()
+```
